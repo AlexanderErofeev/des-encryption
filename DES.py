@@ -25,11 +25,9 @@ class DES:
         return ''.join(block[i - 1] for i in table)
 
     def feistel_function(self, half_block, subkey):
-        # Простая Feistel-функция: XOR половины блока с ключом (упрощение)
         return ''.join(str(int(a) ^ int(b)) for a, b in zip(half_block, subkey))
 
     def generate_subkeys(self):
-        # Простая генерация субключей (в реальном DES это сложнее)
         return [self.key[i:] + self.key[:i] for i in range(16)]
 
     def process_block(self, block, subkeys):
@@ -50,6 +48,42 @@ class DES:
         return ''.join(self.process_block(block, subkeys) for block in blocks)
 
     def decrypt(self, ciphertext: str):
-        subkeys = self.generate_subkeys()[::-1]  # Инвертируем порядок субключей
+        subkeys = self.generate_subkeys()[::-1]
         blocks = [ciphertext[i:i + 64] for i in range(0, len(ciphertext), 64)]
         return ''.join(self.process_block(block, subkeys) for block in blocks)
+
+    @staticmethod
+    def pad_message(message: bytes):
+        padding_len = 8 - (len(message) % 8)
+        padding = bytes([padding_len] * padding_len)
+        return message + padding
+
+    @staticmethod
+    def unpad_message(message: bytes):
+        padding_len = message[-1]
+        return message[:-padding_len]
+
+    def encrypt_message(self, message: str):
+        # Преобразуем сообщение в байты и добавляем padding
+        message_bytes = message.encode('utf-8')
+        padded_message = self.pad_message(message_bytes)
+
+        # Шифруем каждый блок
+        ciphertext = ""
+        for i in range(0, len(padded_message), 8):
+            block = padded_message[i:i + 8]
+            block_bits = ''.join(f'{byte:08b}' for byte in block)
+            ciphertext += self.encrypt(block_bits)
+        return ciphertext
+
+    def decrypt_message(self, ciphertext: str):
+        # Дешифруем каждый блок
+        decrypted_bytes = b""
+        for i in range(0, len(ciphertext), 64):
+            block_bits = ciphertext[i:i + 64]
+            decrypted_block_bits = self.decrypt(block_bits)
+            decrypted_block = int(decrypted_block_bits, 2).to_bytes(8, byteorder='big')
+            decrypted_bytes += decrypted_block
+
+        # Убираем padding
+        return self.unpad_message(decrypted_bytes).decode('utf-8')
